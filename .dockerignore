@@ -1,0 +1,40 @@
+# Version control
+.git
+.gitignore
+.gitattributes
+
+# Build outputs
+build/
+.gradle/
+out/
+target/
+bin/
+
+# IDE
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+.classpath
+.project
+.settings/
+.factorypath
+.springBeans
+.sts4-cache/
+.apt_generated/
+.nb-gradle/
+nbproject/
+
+# Docs & local config
+docs/
+*.md
+docker-compose*.yml
+Dockerfile*
+k6-load-test.js
+.env
+.env.*
+
+# OS
+.DS_Store
+Thumbs.db
