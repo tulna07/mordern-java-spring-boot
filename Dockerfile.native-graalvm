@@ -22,7 +22,7 @@ RUN ./gradlew nativeCompile --no-daemon -x test
 # Stage 2: Runtime — distroless/cc provides glibc + libstdc++
 # required by the native binary; no JVM, no shell, ~20 MB base
 # ============================================================
-FROM gcr.io/distroless/cc-debian12
+FROM debian:12-slim
 
 WORKDIR /app
 COPY --from=build /app/build/native/nativeCompile/demo .
