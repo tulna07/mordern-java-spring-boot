@@ -44,6 +44,7 @@ graalvmNative {
 		main {
 			buildArgs.addAll(
 				'--initialize-at-build-time=org.jboss.logging',
+				'--initialize-at-build-time=org.hibernate.bytecode.internal',
 				'-Dhibernate.bytecode.provider=none'
 			)
 		}
