@@ -35,10 +35,17 @@ tasks.named('test') {
 	useJUnitPlatform()
 }
 
+tasks.named('processAot') {
+	jvmArgs '-Dhibernate.bytecode.provider=none'
+}
+
 graalvmNative {
 	binaries {
 		main {
-			buildArgs.add('--initialize-at-build-time=org.jboss.logging')
+			buildArgs.addAll(
+				'--initialize-at-build-time=org.jboss.logging',
+				'-Dhibernate.bytecode.provider=none'
+			)
 		}
 	}
 }
