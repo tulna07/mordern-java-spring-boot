@@ -1,1 +1,14 @@
-[]
+[
+  {
+    "name": "org.hibernate.jpa.internal.JpaLogger_$logger",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "org.hibernate.boot.BootLogging_$logger",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  }
+]
