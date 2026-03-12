@@ -1,5 +1,13 @@
 [
   {
+    "name": "org.hibernate.bytecode.internal.bytebuddy.BytecodeProviderImpl",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.hibernate.bytecode.internal.none.BytecodeProviderImpl",
+    "allDeclaredConstructors": true
+  },
+  {
     "name": "org.hibernate.event.spi.AutoFlushEventListener[]",
     "allDeclaredConstructors": true
   },
