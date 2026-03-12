@@ -39,9 +39,8 @@ graalvmNative {
 	binaries {
 		main {
 			buildArgs.addAll(
-				'--initialize-at-build-time=org.jboss.logging',
-				'--link-at-build-time=org.hibernate.jpa.internal',
-				'--link-at-build-time=org.hibernate.boot'
+				'-Dorg.jboss.logging.provider=slf4j',
+				'--initialize-at-build-time=org.jboss.logging'
 			)
 		}
 	}
