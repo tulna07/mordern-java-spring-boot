@@ -100,6 +100,10 @@
     "allDeclaredConstructors": true
   },
   {
+    "name": "org.hibernate.event.spi.PreFlushEventListener[]",
+    "allDeclaredConstructors": true
+  },
+  {
     "name": "org.hibernate.event.spi.PreInsertEventListener[]",
     "allDeclaredConstructors": true
   },
