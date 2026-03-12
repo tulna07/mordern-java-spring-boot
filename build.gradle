@@ -34,14 +34,3 @@ dependencies {
 tasks.named('test') {
 	useJUnitPlatform()
 }
-
-graalvmNative {
-	binaries {
-		main {
-			buildArgs.addAll(
-				'--initialize-at-build-time=org.jboss.logging',
-				'-Dorg.jboss.logging.provider=slf4j'
-			)
-		}
-	}
-}
