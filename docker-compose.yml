@@ -1,7 +1,7 @@
 services:
 
   app:
-    image: book-aot-cache
+    image: ghcr.io/tulna07/mordern-java-spring-boot:native
     ports:
       - "8080:8080"
     environment:

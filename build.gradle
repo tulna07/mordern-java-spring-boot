@@ -38,10 +38,7 @@ tasks.named('test') {
 graalvmNative {
 	binaries {
 		main {
-			buildArgs.addAll(
-				'-Dorg.jboss.logging.provider=slf4j',
-				'--initialize-at-build-time=org.jboss.logging'
-			)
+			buildArgs.add('--initialize-at-build-time=org.jboss.logging')
 		}
 	}
 }
