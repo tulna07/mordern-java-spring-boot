@@ -26,6 +26,7 @@ public class HibernateLoggingHints {
             "org.hibernate.engine.jdbc.spi.SQLExceptionLogging_$logger",
             "org.hibernate.id.enhanced.TableGeneratorLogger_$logger",
             "org.hibernate.internal.CoreMessageLogger_$logger",
+            "org.hibernate.internal.SessionFactoryLogging_$logger",
             "org.hibernate.internal.SessionFactoryRegistryMessageLogger_$logger",
             "org.hibernate.internal.log.ConnectionInfoLogger_$logger",
             "org.hibernate.internal.log.DeprecationLogger_$logger",
