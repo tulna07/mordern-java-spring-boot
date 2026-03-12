@@ -1,7 +1,7 @@
 services:
 
   app:
-    image: ghcr.io/tulna07/mordern-java-spring-boot:native
+    image: ghcr.io/tulna07/mordern-java-spring-boot:native-070e66a2dab1dcf7074dc45df9caf5bab51b196d
     ports:
       - "8080:8080"
     environment:
