@@ -27,7 +27,6 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-kafka'
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
 	runtimeOnly 'org.postgresql:postgresql'
-	annotationProcessor 'org.jboss.logging:jboss-logging-processor:3.6.1.Final'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
@@ -41,8 +40,8 @@ graalvmNative {
 		main {
 			buildArgs.addAll(
 				'--initialize-at-build-time=org.jboss.logging',
-				'--initialize-at-build-time=org.hibernate.jpa.internal.JpaLogger_$logger',
-				'--initialize-at-build-time=org.hibernate.boot.BootLogging_$logger'
+				'--link-at-build-time=org.hibernate.jpa.internal',
+				'--link-at-build-time=org.hibernate.boot'
 			)
 		}
 	}
