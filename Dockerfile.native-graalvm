@@ -12,18 +12,13 @@ RUN ./gradlew dependencies --configuration runtimeClasspath --no-daemon
 COPY src src
 RUN ./gradlew bootJar -x test --no-daemon
 
-# Extract layered JAR so the agent can exercise the full classpath
-RUN java -Djarmode=tools -jar build/libs/*.jar extract --destination build/extracted
-
-# Run tracing agent — spring.context.exit=onRefresh starts + refreshes context then exits cleanly
-# Dummy infra URLs are fine: agent only needs classes to be loaded, not actual connections
-RUN cd build/extracted && \
-    java -agentlib:native-image-agent=config-output-dir=/tmp/agent-config \
+# Run tracing agent against the fat JAR directly
+RUN java -agentlib:native-image-agent=config-output-dir=/tmp/agent-config \
          -Dspring.context.exit=onRefresh \
          -Dspring.datasource.url=jdbc:postgresql://localhost/demo \
          -Dspring.data.redis.host=localhost \
          -Dspring.kafka.bootstrap-servers=localhost:9092 \
-         -jar app.jar || true
+         -jar build/libs/*.jar || true
 
 # ============================================================
 # Stage 2: Native compile using agent-generated configs
