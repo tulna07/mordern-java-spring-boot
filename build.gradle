@@ -34,11 +34,3 @@ dependencies {
 tasks.named('test') {
 	useJUnitPlatform()
 }
-
-graalvmNative {
-	binaries {
-		main {
-			buildArgs.add('--exclude-config=hibernate-core-.*\\.jar,META-INF/services/org.hibernate.bytecode.spi.BytecodeProvider')
-		}
-	}
-}
