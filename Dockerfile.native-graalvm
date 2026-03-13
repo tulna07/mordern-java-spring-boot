@@ -1,8 +1,11 @@
 # ============================================================
-# Stage 1: Build JAR + run tracing agent to collect reflection metadata
+# Stage 1: Build JAR + run tracing agent
 # ============================================================
 FROM ghcr.io/graalvm/native-image-community:21 AS agent
 WORKDIR /app
+
+# Install xargs (missing from Oracle Linux minimal)
+RUN microdnf install -y findutils && microdnf clean all
 
 COPY gradle gradle
 COPY gradlew settings.gradle build.gradle ./
@@ -12,7 +15,6 @@ RUN ./gradlew dependencies --configuration runtimeClasspath --no-daemon
 COPY src src
 RUN ./gradlew bootJar -x test --no-daemon
 
-# Run tracing agent against the fat JAR directly
 RUN java -agentlib:native-image-agent=config-output-dir=/tmp/agent-config \
          -Dspring.context.exit=onRefresh \
          -Dspring.datasource.url=jdbc:postgresql://localhost/demo \
@@ -21,10 +23,12 @@ RUN java -agentlib:native-image-agent=config-output-dir=/tmp/agent-config \
          -jar build/libs/*.jar || true
 
 # ============================================================
-# Stage 2: Native compile using agent-generated configs
+# Stage 2: Native compile
 # ============================================================
 FROM ghcr.io/graalvm/native-image-community:21 AS build
 WORKDIR /app
+
+RUN microdnf install -y findutils && microdnf clean all
 
 COPY gradle gradle
 COPY gradlew settings.gradle build.gradle ./
