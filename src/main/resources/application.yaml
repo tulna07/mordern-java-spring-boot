@@ -24,7 +24,7 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
   main:
-    lazy-initialization: false
+    lazy-initialization: true
 
   data:
     redis:

@@ -1,5 +1,5 @@
 # Build stage
-FROM gradle:jdk21 AS build
+FROM gradle:jdk25 AS build
 WORKDIR /app
 
 COPY gradle gradle
@@ -16,7 +16,7 @@ RUN ./gradlew bootJar -x test --no-daemon
 RUN java -Djarmode=tools -jar build/libs/*.jar extract --layers --launcher --destination build/extracted
 
 # Runtime stage
-FROM eclipse-temurin:21-jre-alpine
+FROM eclipse-temurin:25-jre-alpine
 WORKDIR /app
 
 # Copy layers in order of least-to-most frequently changed

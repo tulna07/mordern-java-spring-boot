@@ -1,141 +1,181 @@
 # Startup Optimization Experiment — Results & Analysis
 
 **Application:** demo-virtual-thread  
-**Stack:** Spring Boot 4.0.3 · Java 25.0.2 · JPA + Redis + Kafka + PostgreSQL 17  
-**Environment:** Docker Compose on Linux (single host)
-
----
-
-## Experiment Design
-
-Two experiments were run:
-
-**Experiment A** — Config-only properties tested against a warm infrastructure baseline:
-```yaml
-spring:
-  jpa:
-    open-in-view: false
-  main:
-    lazy-initialization: true
-```
-
-**Experiment B** — AOT Cache (Java 24+ JVM feature) tested against the optimized config baseline.
-
-Each run used `docker compose up -d --force-recreate app`. Startup time taken from:
+**Environment:** Docker Compose on Linux (single host)  
+**Method:** `docker compose up -d --force-recreate app`, startup time from:
 ```
 Started DemoApplication in X seconds (process running for Y)
 ```
 
 ---
 
-## All Runs — Measured Results
+## Stack Versions
 
-All times from actual `docker compose logs app` output.
+Two stacks were used across experiments. Results are **not cross-comparable** between stacks.
 
-| Run | Infrastructure | Image / Config | Startup time | WebAppContext init |
+| Stack | Spring Boot | Java | Hibernate | Kafka |
+|---|---|---|---|---|
+| A (Phase 1) | 4.0.3 | 25.0.2 | 7.2.4 | `spring-boot-starter-kafka` |
+| B (Phase 2) | 3.4.3 | 21.0.2 | 6.6.8 | `spring-kafka` |
+
+---
+
+## Phase 1 — Stack A (Spring Boot 4 / Java 25)
+
+### All Measured Runs
+
+| Run | Infrastructure | Config / Image | Startup time | WebAppContext init |
 |---|---|---|---|---|
 | 1 | Cold (first boot) | No optimizations | **86.9s** | 35,554ms |
 | 2 | Warm | `open-in-view: false` + `lazy-init: true` | **22.3s** | 7,294ms |
 | 3 | Warm | No optimizations (reverted) | **27.6s** | 7,582ms |
 | 4 | Warm | `open-in-view: false` + `lazy-init: true` | **22.9s** | 9,239ms |
-| 5 | Warm | AOT Cache (`book-aot-cache` image) | **9.7s** | 4,689ms |
+| 5 | Warm | AOT Cache image | **9.7s** | 4,689ms |
 
----
-
-## Experiment A — Config Properties
-
-**Apples-to-apples (warm infra, Runs 3 vs 4):**
+### Experiment A — Config Properties (Runs 3 vs 4)
 
 | | Without | With | Saving |
 |---|---|---|---|
 | Startup time | 27.6s | 22.9s | **−4.7s (−17%)** |
 
-### `spring.jpa.open-in-view: false`
+**`spring.jpa.open-in-view: false`** — removes `OpenEntityManagerInViewInterceptor` from context. No functional impact on REST APIs.
 
-Removes `JpaWebConfiguration` and `OpenEntityManagerInViewInterceptor` from the context. No functional impact on REST APIs. Spring Boot logs a warning when not explicitly set — confirmed eliminated in Run 2 and Run 4 logs.
+**`spring.main.lazy-initialization: true`** — defers Hibernate, HikariCP, Kafka, Redis, and AOP proxy initialization until first use.
 
-### `spring.main.lazy-initialization: true`
-
-Defers bean creation until first use. Defers out of the startup path:
-- Hibernate `EntityManagerFactory`
-- HikariCP connection pool
-- Kafka consumer bootstrap
-- Redis `LettuceConnectionFactory` pool
-- AOP proxies for `@Transactional`, `@Cacheable`, `@KafkaListener`
-
-From [Spring Boot official docs](https://docs.spring.io/spring-boot/reference/using/spring-beans-and-dependency-injection.html):
-> "A disadvantage of lazy initialization is that it can delay the discovery of a problem with the application."
-
-**Trade-offs:**
+Trade-offs per [Spring Boot docs](https://docs.spring.io/spring-boot/reference/using/spring-beans-and-dependency-injection.html):
 
 | Concern | Detail |
 |---|---|
-| First-request latency | First call to each endpoint triggers bean init — can add 1–5s |
+| First-request latency | First call triggers bean init — adds 1–5s |
 | Startup error masking | Misconfigured beans fail on first use, not at startup |
-| Readiness probe gap | App reports "Started" before connections are established |
+| Readiness probe gap | App reports "Started" before connections are verified |
+| **Native image incompatibility** | **Incompatible with GraalVM AOT — Spring cannot discover beans at build time** |
 
-**Mitigation:** Use `readinessProbe` pointing at `/actuator/health` — triggers lazy init of datasource, Redis, and Kafka health indicators before traffic is routed.
+### Experiment B — AOT Cache (Runs 4 vs 5)
 
----
-
-## Experiment B — AOT Cache
-
-**Apples-to-apples (warm infra, Run 4 vs Run 5):**
-
-| | Without AOT Cache | With AOT Cache | Saving |
+| | Without | With | Saving |
 |---|---|---|---|
 | Startup time | 22.9s | **9.7s** | **−13.2s (−57%)** |
 | WebAppContext init | 9,239ms | **4,689ms** | **−49%** |
 
-### What AOT Cache does
+AOT Cache ([JEP 483](https://openjdk.org/jeps/483), Java 24+) stores pre-processed class metadata, loaded/linked classes, and AOT-compiled methods in a `.aot` file baked into the image. The JVM skips re-parsing this work on subsequent starts.
 
-AOT Cache (Java 24+, [JEP 483](https://openjdk.org/jeps/483)) pre-processes and stores class metadata, loaded/linked classes, and ahead-of-time compiled methods in a `.aot` file during a training run at build time. On subsequent starts, the JVM skips re-parsing that work.
+The training run generated a **116 MB** `app.aot` file baked into the image.
 
-The training run generated a **116 MB** `app.aot` file (122,617,856 bytes) baked into the image.
+> **Note:** AOT Cache requires Java 24+. It is not available on Java 21 (Stack B).
 
-From [Spring Boot 4.0.3 official docs](https://docs.spring.io/spring-boot/reference/packaging/aot-cache.html):
-> "You have to use the cache file with the extracted form of the application, otherwise it has no effect."
-
-### Dockerfile used (`Dockerfile.aot-cache`)
-
-Three stages: build → training run (generates `app.aot`) → runtime (uses `app.aot`).
-
-### Trade-offs
+Trade-offs:
 
 | Concern | Detail |
 |---|---|
-| Image size | +122 MB larger than baseline — the `app.aot` file (116 MB) is baked into the image (`book`: 315 MB → `book-aot-cache`: 437 MB) |
-| `.aot` file is JVM-version-specific | Rebuild required on JDK upgrade |
-| Classpath must match between training and production | Any dependency change requires regenerating the cache |
-| Training run needs app to start partially | DB connection failure during training is expected and handled with `|| true` |
+| Image size | +116 MB — `app.aot` baked into image |
+| JVM-version-specific | Rebuild required on JDK upgrade |
+| Classpath coupling | Any dependency change requires regenerating the cache |
+
+### Cold vs Warm Infrastructure (Runs 1 vs 3)
+
+Run 1 (86.9s) vs Run 3 (27.6s) — same code, no config changes. The ~59s difference was entirely infrastructure:
+
+- **Cold:** Kafka KRaft coordinator still electing → `NOT_COORDINATOR` retries blocked startup ~50s
+- **Warm:** Kafka ready, OS page cache hot, JAR layers in memory
+
+**Production implication:** Rolling restarts hit warm infra. Full cluster restarts (outage recovery) hit cold — size readiness probe timeouts accordingly.
 
 ---
 
-## Full Comparison (warm infra)
+## Phase 2 — Stack B (Spring Boot 3.4.3 / Java 21)
 
-| Optimization | Startup time | vs baseline | Image size |
+### All Measured Runs
+
+All runs on warm infrastructure.
+
+| Run | Image | Startup time |
+|---|---|---|
+| 1 | JVM (`eclipse-temurin:21-jre-alpine`) | 20.7s |
+| 2 | JVM | 19.7s |
+| 3 | JVM | 28.2s |
+| 4 | JVM | 16.9s |
+| 5 | Native (GraalVM 21) | 3.3s |
+| 6 | Native | 2.1s |
+| 7 | Native | 1.8s |
+| 8 | Native | 6.5s |
+
+### Experiment C — GraalVM Native Image
+
+| | JVM (avg) | Native (avg) | Saving |
 |---|---|---|---|
-| No optimizations (baseline) | 27.6s | — | 315 MB |
-| Config only (`open-in-view` + `lazy-init`) | 22.9s | −17% | 315 MB |
-| AOT Cache (on top of config) | **9.7s** | **−65%** | **437 MB (+122 MB)** |
+| Startup time | ~21.4s | **~3.4s** | **~84%** |
+| Range | 16.9s – 28.2s | 1.8s – 6.5s | — |
 
----
+#### What GraalVM Native Image does
 
-## Cold vs Warm Infrastructure
+GraalVM compiles the entire application — code + Spring + all dependencies — into a single platform-specific binary at build time. No JVM is included in the runtime image.
 
-Run 1 (86.9s) vs Run 3 (27.6s) — same code, no config changes. The 59s difference was entirely infrastructure state:
+Spring Boot 3's `processAot` task runs before `nativeCompile` and automatically generates all required reflection hints, proxy configurations, and resource metadata for Hibernate, Redis, Kafka, and other libraries.
 
-- **Cold:** Kafka KRaft coordinator still electing → repeated `NOT_COORDINATOR` retries blocked startup ~50s
-- **Warm:** Kafka coordinator ready, OS page cache hot, JAR layers in memory
+#### Stack
 
-**Production implication:** Rolling restarts always hit warm infra. Full cluster restarts (outage recovery) hit cold infra — size readiness probe timeouts accordingly.
+- Spring Boot 3.4.3 + Spring Framework 6.2.3 (stable native support since Spring Boot 3.0)
+- GraalVM Community 21 (`ghcr.io/graalvm/native-image-community:21`)
+- Hibernate 6.6.8 — bytecode provider handled automatically by Spring AOT
+- `org.graalvm.buildtools.native` plugin 0.10.4
 
----
+#### Dockerfile (`Dockerfile.native-graalvm`)
 
-## Observed Warnings
+Single build stage using `./gradlew nativeCompile`, runtime on `debian:12-slim` (~120 MB, no JVM).
 
-| Warning | Status |
+#### Critical requirement
+
+`spring.main.lazy-initialization` must be `false` (the default). With lazy init enabled, Spring AOT cannot discover beans at build time → missing reflection hints → runtime failures.
+
+#### Why startup time varies (1.8s – 6.5s)
+
+The native binary itself starts in milliseconds. The observed variance comes from infrastructure:
+- Kafka consumer group rebalance timing (non-deterministic)
+- HikariCP initial connection pool establishment
+- Redis `LettuceConnectionFactory` pool warmup
+
+The native image worst case (6.5s) is still faster than the JVM best case (16.9s).
+
+#### Trade-offs
+
+| Concern | Detail |
 |---|---|
-| `open-in-view is enabled by default` | ✅ Eliminated by `open-in-view: false` |
-| `PostgreSQLDialect does not need to be specified` | ⚠️ Still present — remove `spring.jpa.properties.hibernate.dialect` to fix |
-| `Multiple Spring Data modules found` | ℹ️ Expected — JPA + Redis on classpath, resolved correctly via strict mode |
+| Build time | ~10 min (native) vs ~1 min (JVM) |
+| Platform-specific binary | Must rebuild for each target OS/arch |
+| Peak throughput | Lower than warmed-up JVM — no JIT re-optimization at runtime |
+| Debugging | No standard JVM tooling; limited profiling support |
+| Dynamic features | Reflection/proxies need AOT hints — Spring Boot 3 handles most automatically |
+
+---
+
+## Full Summary
+
+### Phase 1 (Spring Boot 4 / Java 25, warm infra baseline = 27.6s)
+
+| Optimization | Startup time | vs baseline |
+|---|---|---|
+| No optimizations | 27.6s | — |
+| `open-in-view: false` + `lazy-init: true` | 22.9s | −17% |
+| AOT Cache (Java 24+) | 9.7s | −65% |
+
+### Phase 2 (Spring Boot 3.4.3 / Java 21, warm infra)
+
+| Image | Avg startup | vs JVM baseline |
+|---|---|---|
+| JVM (no optimizations) | ~21.4s | — |
+| **GraalVM Native Image** | **~3.4s** | **~84%** |
+
+---
+
+## Lessons Learned
+
+1. **Infrastructure state dominates cold-start time** — Kafka KRaft election alone added ~50s in Run 1. Warm infra is the realistic production baseline for rolling restarts.
+
+2. **`lazy-initialization: true` is incompatible with GraalVM native** — Spring AOT needs eager bean discovery at build time. Enabling lazy init causes missing reflection hints and runtime failures.
+
+3. **Spring Boot 3 + GraalVM 21 is production-ready for native images** — No manual reflection config needed. `processAot` handles Hibernate, Kafka, Redis, and validation automatically.
+
+4. **Spring Boot 4 + Hibernate 7 native image is not stable yet** — ByteBuddy bytecode provider and other Hibernate 7 internals lack complete GraalVM reachability metadata as of March 2026.
+
+5. **AOT Cache (JEP 483) requires Java 24+** — Not available on Java 21 LTS. Provides similar startup improvement to native image while keeping the JVM.
