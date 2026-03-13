@@ -1,7 +1,7 @@
 # ============================================================
 # Stage 1: Build JAR + run tracing agent to collect reflection metadata
 # ============================================================
-FROM ghcr.io/graalvm/native-image-community:25 AS agent
+FROM ghcr.io/graalvm/native-image-community:21 AS agent
 WORKDIR /app
 
 COPY gradle gradle
@@ -23,7 +23,7 @@ RUN java -agentlib:native-image-agent=config-output-dir=/tmp/agent-config \
 # ============================================================
 # Stage 2: Native compile using agent-generated configs
 # ============================================================
-FROM ghcr.io/graalvm/native-image-community:25 AS build
+FROM ghcr.io/graalvm/native-image-community:21 AS build
 WORKDIR /app
 
 COPY gradle gradle
@@ -32,7 +32,6 @@ RUN chmod +x gradlew
 RUN ./gradlew dependencies --configuration runtimeClasspath --no-daemon
 
 COPY src src
-# Inject agent-generated metadata so nativeCompile picks it up automatically
 COPY --from=agent /tmp/agent-config src/main/resources/META-INF/native-image/agent/
 
 RUN ./gradlew nativeCompile --no-daemon -x test

@@ -11,8 +11,6 @@ import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 public class DemoApplication {
 
     public static void main(String[] args) {
-        System.setProperty("org.jboss.logging.provider", "slf4j");
-        System.setProperty("hibernate.bytecode.provider", "none");
         SpringApplication.run(DemoApplication.class, args);
     }
 }
