@@ -22,7 +22,6 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
-        bytecode.provider: none
 
   main:
     lazy-initialization: false
